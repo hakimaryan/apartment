@@ -10,16 +10,7 @@ module Apartment
         if difference[:host]
           connection_switch!(config)
         elsif difference[:database]
-          begin
-            simple_switch(config)
-          rescue TenantNotFound => e
-            if !e.message.match?("Unknown database '#{config[:database]}'")
-              # borked connection, remove it and reconnect the connection
-              connection_switch!(config, reconnect: true)
-            else
-              raise e
-            end
-          end
+          simple_switch(config)
         end
       end
 
@@ -29,8 +20,13 @@ module Apartment
 
       def simple_switch(config)
         Apartment.connection.execute("use `#{config[:database]}`")
-      rescue ActiveRecord::StatementInvalid => exception
-        raise_connect_error!(config[:database], exception)
+      rescue ActiveRecord::StatementInvalid => e
+        if !e.message.match?("Unknown database '#{config[:database]}'")
+          # borked connection, remove it and reconnect the connection
+          connection_switch!(config, reconnect: true)
+        else
+          raise_connect_error!(config[:database], e)
+        end
       end
 
       def connection_specification_name(config)

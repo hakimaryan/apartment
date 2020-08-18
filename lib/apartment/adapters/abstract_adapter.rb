@@ -152,7 +152,10 @@ module Apartment
         end
 
         Thread.current[:_apartment_connection_specification_name] = config[:name]
-        simple_switch(config) if config[:database] || config[:schema_search_path]
+
+        if (config[:database] || config[:schema_search_path]) && !reconnect
+          simple_switch(config)
+        end
       end
 
       def import_database_schema

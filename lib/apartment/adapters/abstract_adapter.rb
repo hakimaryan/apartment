@@ -22,7 +22,15 @@ module Apartment
 
         yield
       ensure
-        switch!(previous_tenant) rescue reset
+        begin
+          switch!(previous_tenant)
+        rescue
+          begin
+            reset
+          rescue => e
+            puts "WARN: Unable to switch back to previous tenant, or reset"
+          end
+        end
       end
 
       def create(tenant)

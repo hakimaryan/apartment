@@ -9,8 +9,12 @@ module Apartment
 
         if difference[:host]
           connection_switch!(config)
-        else
-          simple_switch(config) if difference[:database]
+        elsif difference[:database]
+          begin
+            simple_switch(config)
+          rescue TenantNotFound
+            connection_switch!(config, ignore_existing_pool: true)
+          end
         end
       end
 

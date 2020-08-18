@@ -133,12 +133,12 @@ module Apartment
         config.select{ |k, v| current_config[k] != v }
       end
 
-      def connection_switch!(config, without_keys: [])
+      def connection_switch!(config, without_keys: [], ignore_existing_pool: false)
         config = config.reject{ |k, _| without_keys.include?(k) }
 
         config.merge!(name: connection_specification_name(config))
 
-        unless Apartment.connection_handler.retrieve_connection_pool(config[:name])
+        if ignore_existing_pool || !Apartment.connection_handler.retrieve_connection_pool(config[:name])
           Apartment.connection_handler.establish_connection(config)
         end
 

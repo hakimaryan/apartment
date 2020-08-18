@@ -12,8 +12,13 @@ module Apartment
         elsif difference[:database]
           begin
             simple_switch(config)
-          rescue TenantNotFound
-            connection_switch!(config, ignore_existing_pool: true)
+          rescue TenantNotFound => e
+            if !e.message.match?("Unknown database '#{config[:database]}'")
+              # borked connection, remove it and reconnect the connection
+              connection_switch!(config, reconnect: true)
+            else
+              raise e
+            end
           end
         end
       end

@@ -24,7 +24,7 @@ module Apartment
       ensure
         begin
           switch!(previous_tenant)
-        rescue
+        rescue => e
           begin
             reset
           rescue => e
@@ -141,12 +141,13 @@ module Apartment
         config.select{ |k, v| current_config[k] != v }
       end
 
-      def connection_switch!(config, without_keys: [], ignore_existing_pool: false)
+      def connection_switch!(config, without_keys: [], reconnect: false)
         config = config.reject{ |k, _| without_keys.include?(k) }
-
         config.merge!(name: connection_specification_name(config))
 
-        if ignore_existing_pool || !Apartment.connection_handler.retrieve_connection_pool(config[:name])
+        Apartment.connection_handler.remove_connection(config[:name]) if reconnect
+
+        unless Apartment.connection_handler.retrieve_connection_pool(config[:name])
           Apartment.connection_handler.establish_connection(config)
         end
 

@@ -158,10 +158,17 @@ module Apartment
           Apartment.connection_handler.establish_connection(config)
         end
 
-        Thread.current[:_apartment_connection_specification_name] = config[:name]
+        begin
+          previous = Thread.current[:_apartment_connection_specification_name]
+          Thread.current[:_apartment_connection_specification_name] = config[:name]
 
-        if (config[:database] || config[:schema_search_path]) && !reconnect
-          simple_switch(config)
+          if (config[:database] || config[:schema_search_path]) && !reconnect
+            simple_switch(config)
+          end
+        rescue
+          Thread.current[:_apartment_connection_specification_name] = previous
+
+          raise
         end
       end
 

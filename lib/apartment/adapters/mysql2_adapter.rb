@@ -9,7 +9,7 @@ module Apartment
 
         if difference[:host]
           connection_switch!(config)
-        elsif difference[:database]
+        else
           simple_switch(config)
         end
       end

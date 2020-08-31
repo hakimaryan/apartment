@@ -9,7 +9,7 @@ module Apartment
       def initialize
         reset
       rescue Apartment::TenantNotFound
-        puts "WARN: Unable to connect to default tenant"
+        Rails.logger.warn "Unable to connect to default tenant"
       end
 
       def reset
@@ -24,11 +24,11 @@ module Apartment
       ensure
         begin
           switch!(previous_tenant)
-        rescue => e
+        rescue
           begin
             reset
-          rescue => e
-            puts "WARN: Unable to switch back to previous tenant, or reset"
+          rescue
+            Rails.logger.error "Unable to switch back to previous tenant, or reset"
           end
         end
       end
@@ -91,11 +91,9 @@ module Apartment
             switch_tenant(config)
           end
 
-          @current = tenant
-
           Apartment.connection.clear_query_cache
 
-          tenant
+          @current = tenant
         end
       end
 

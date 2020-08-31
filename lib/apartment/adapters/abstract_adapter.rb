@@ -24,11 +24,20 @@ module Apartment
       ensure
         begin
           switch!(previous_tenant)
-        rescue
+        rescue => e
+          Rails.logger.error "Failed to switch back to previous tenant: #{previous_tenant}"
+          Rails.logger.error e.message
+          e.backtrace.each do |bt|
+            Rails.logger.error bt
+          end
           begin
             reset
-          rescue
-            Rails.logger.error "Unable to switch back to previous tenant, or reset"
+          rescue => e
+            Rails.logger.error "Unable to switch back to previous tenant, or reset to default tenant: #{Apartment.default_tenant}"
+            Rails.logger.error e.message
+            e.backtrace.each do |bt|
+              Rails.logger.error bt
+            end
           end
         end
       end

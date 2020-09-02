@@ -90,7 +90,9 @@ module Apartment
 
       def switch!(tenant)
         run_callbacks :switch do
-          return reset if tenant.nil?
+          unless valid_tenant?(tenant)
+            raise_connect_error!(tenant, ApartmentError.new("Invalid tenant!"))
+          end
 
           config = config_for(tenant)
 

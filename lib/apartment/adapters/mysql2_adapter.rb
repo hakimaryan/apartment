@@ -49,7 +49,7 @@ module Apartment
         end
 
         def valid_tenant?(tenant)
-          db = tenant.is_a?(Hash) ? tenant[:database] : tenant
+          db = tenant.is_a?(Hash) ? tenant.with_indifferent_access[:database] : tenant
 
           db && db.bytes.size <= 64 && db.match?(/[^\.\\\/]+/)
         end

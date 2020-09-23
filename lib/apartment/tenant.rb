@@ -36,7 +36,10 @@ module Apartment
           raise AdapterNotFound, "The adapter `#{adapter_name}` is not yet supported"
         end
 
-        adapter_class.new
+        adapter_class.new.tap do |adapter|
+          adapter.setup_connection_specification_name
+          adapter.process_excluded_models
+        end
       end
     end
 

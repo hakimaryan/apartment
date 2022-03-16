@@ -22,7 +22,7 @@ module Apartment
     attr_accessor(*ACCESSOR_METHODS)
     attr_writer(*WRITER_METHODS)
 
-    def_delegators :connection_class, :connection, :connection_config,
+    def_delegators :connection_class, :connection, :connection_db_config,
       :establish_connection, :connection_handler
 
     def configure
@@ -30,7 +30,7 @@ module Apartment
     end
 
     def tenant_resolver
-      @tenant_resolver ||= @resolver_class.new(connection_config)
+      @tenant_resolver ||= @resolver_class.new(connection_db_config.configuration_hash)
     end
 
     def tenant_resolver=(resolver_class)

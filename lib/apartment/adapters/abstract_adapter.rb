@@ -138,7 +138,7 @@ module Apartment
             if !defined?(@connection_specification_name) || @connection_specification_name.nil?
               apartment_spec_name = Thread.current[:_apartment_connection_specification_name]
               return apartment_spec_name ||
-                (self == ActiveRecord::Base ? "primary" : superclass.connection_specification_name)
+                (self == ActiveRecord::Base ? "ActiveRecord::Base" : superclass.connection_specification_name)
             end
             @connection_specification_name
           end

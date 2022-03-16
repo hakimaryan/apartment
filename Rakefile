@@ -3,6 +3,7 @@ Bundler.setup
 Bundler::GemHelper.install_tasks
 require "rake/testtask"
 require 'yaml'
+require "erb"
 
 Rake::TestTask.new do |t|
   t.libs = ["lib"]
@@ -64,7 +65,7 @@ namespace :mysql do
 
   desc 'Build the MySQL test databases'
   task :build_db do
-    %x{ /usr/local/mysql/bin/mysqladmin -u #{my_config['username']} --password=#{my_config['password']} create #{my_config['database']} } rescue "test db already exists"
+    %x{ mysqladmin -u #{my_config['username']} --password=#{my_config['password']} create #{my_config['database']} } rescue "test db already exists"
     ActiveRecord::Base.establish_connection my_config
     ActiveRecord::Migration.suppress_messages do
       load(File.join(File.dirname(__FILE__), "test/dummy/db/schema.rb"))
@@ -74,7 +75,7 @@ namespace :mysql do
   desc "drop the MySQL test database"
   task :drop_db do
     puts "dropping database #{my_config['database']}"
-    %x{ /usr/local/mysql/bin/mysqladmin -u #{my_config['username']} --password=#{my_config['password']} drop #{my_config['database']} --force}
+    %x{ mysqladmin -u #{my_config['username']} --password=#{my_config['password']} drop #{my_config['database']} --force}
   end
 
 end

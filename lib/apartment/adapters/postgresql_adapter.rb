@@ -107,6 +107,10 @@ module Apartment
         def strip_quotes(string)
           string[0] == '"' ? string[1..-2] : string
         end
+
+        def valid_tenant?(tenant)
+          true
+        end
     end
   end
 end

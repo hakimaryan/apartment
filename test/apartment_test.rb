@@ -43,8 +43,8 @@ module Apartment
       # persist and cause bugs for future tests using the same
       # host/adapter (so the spec name is the same)
       Apartment.connection_class.connection_handler.tap do |ch|
-        ch.send(:owner_to_pool).each_key do |k|
-          ch.remove_connection(k) if k =~ /^_apartment/
+        ch.send(:owner_to_pool_manager).each_key do |k|
+          ch.remove_connection_pool(k) if k =~ /^_apartment/
         end
       end
       Apartment.reset

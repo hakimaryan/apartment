@@ -154,7 +154,7 @@ module Apartment
         config = config.reject{ |k, _| without_keys.include?(k) }
         owner_name = connection_specification_name(config)
 
-        Apartment.connection_handler.remove_connection(owner_name) if reconnect
+        Apartment.connection_handler.remove_connection_pool(owner_name) if reconnect
 
         unless Apartment.connection_handler.retrieve_connection_pool(owner_name)
           Apartment.connection_handler.establish_connection(config, owner_name: owner_name)

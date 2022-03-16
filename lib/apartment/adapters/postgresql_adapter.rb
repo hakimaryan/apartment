@@ -76,10 +76,10 @@ module Apartment
 
       def connection_specification_name(config)
         if Apartment.pool_per_config
-          "_apartment_#{config.hash}".to_sym
+          "_apartment_#{config.hash}"
         else
           host_hash = Digest::MD5.hexdigest(config[:host] || config[:url] || "127.0.0.1")
-          "_apartment_#{host_hash}_#{config[:adapter]}_#{config[:database]}".to_sym
+          "_apartment_#{host_hash}_#{config[:adapter]}_#{config[:database]}"
         end
       end
 

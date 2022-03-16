@@ -16,7 +16,7 @@ class ExcludedModelsTest < Apartment::Test
   def test_model_exclusions
     Apartment::Tenant.adapter.process_excluded_models
 
-    assert_equal :_apartment_excluded, Company.connection_specification_name
+    assert_equal "_apartment_excluded", Company.connection_specification_name
 
     Apartment::Tenant.switch(@tenant1) do
       assert_tenant_is(@tenant1)

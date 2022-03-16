@@ -121,13 +121,13 @@ module Apartment
       end
 
       def process_excluded_models
-        excluded_config = config_for(Apartment.default_tenant).merge(name: :_apartment_excluded)
-        Apartment.connection_handler.establish_connection(excluded_config)
+        excluded_config = config_for(Apartment.default_tenant)
+        Apartment.connection_handler.establish_connection(excluded_config, owner_name: "_apartment_excluded")
 
         Apartment.excluded_models.each do |excluded_model|
           # user mustn't have overridden `connection_specification_name`
           # cattr_accessor in model
-          excluded_model.constantize.connection_specification_name = :_apartment_excluded
+          excluded_model.constantize.connection_specification_name = "_apartment_excluded"
         end
       end
 
@@ -152,17 +152,17 @@ module Apartment
 
       def connection_switch!(config, without_keys: [], reconnect: false)
         config = config.reject{ |k, _| without_keys.include?(k) }
-        config.merge!(name: connection_specification_name(config))
+        owner_name = connection_specification_name(config)
 
-        Apartment.connection_handler.remove_connection(config[:name]) if reconnect
+        Apartment.connection_handler.remove_connection(owner_name) if reconnect
 
-        unless Apartment.connection_handler.retrieve_connection_pool(config[:name])
-          Apartment.connection_handler.establish_connection(config)
+        unless Apartment.connection_handler.retrieve_connection_pool(owner_name)
+          Apartment.connection_handler.establish_connection(config, owner_name: owner_name)
         end
 
         begin
           previous = Thread.current[:_apartment_connection_specification_name]
-          Thread.current[:_apartment_connection_specification_name] = config[:name]
+          Thread.current[:_apartment_connection_specification_name] = owner_name
 
           if (config[:database] || config[:schema_search_path]) && !reconnect
             simple_switch(config)

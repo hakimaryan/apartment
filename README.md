@@ -478,6 +478,29 @@ See [apartment-sidekiq](https://github.com/influitive/apartment-sidekiq)
 * Ensure that your code is accompanied with tests. No code will be merged
   without tests
 
+To run the tests:
+
+```
+cp test/databases.yml.sample test/databases.yml
+bundle
+bundle exec rake db:test:prepare
+bundle exec rake test
+```
+
+To run a specific test file:
+
+```
+bundle exec rake test TEST="test/mysql2_adapter_test.rb"
+```
+
+To run a specific test:
+
+```
+bundle exec rake test TEST=test/mysql2_adapter_test.rb TESTOPTS="--name=test_remote_switch_modifies_connection"
+```
+
+You must have mysql and postgresql available to support running all tests.
+
 ## License
 
 Apartment is released under the [MIT License](http://www.opensource.org/licenses/MIT).

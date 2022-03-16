@@ -3,6 +3,7 @@ $LOAD_PATH.unshift(File.dirname(__FILE__))
 
 ENV["RAILS_ENV"] = "test"
 
+require "pry-byebug"
 require "logger"
 require "active_record"
 

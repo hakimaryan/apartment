@@ -24,27 +24,30 @@ module Apartment
     #   @return {subclass of Apartment::AbstractAdapter}
     #
     def adapter
-      Thread.current[:apartment_adapter] ||= begin
-        config = Apartment.default_tenant
-
-        adapter_name = "#{config[:adapter]}_adapter"
-
-        begin
-          require "apartment/adapters/#{adapter_name}"
-          adapter_class = Adapters.const_get(adapter_name.classify)
-        rescue LoadError, NameError
-          raise AdapterNotFound, "The adapter `#{adapter_name}` is not yet supported"
-        end
-
-        adapter_class.new.tap do |adapter|
-          adapter.setup_connection_specification_name
-          adapter.process_excluded_models
-        end
-      end
+      Thread.current[:apartment_adapter] ||= create_adapter_instance
     end
 
     def reload!
       Thread.current[:apartment_adapter] = nil
+    end
+
+    private
+
+    def create_adapter_instance
+      config = Apartment.default_tenant
+      adapter_name = "#{config[:adapter]}_adapter"
+
+      begin
+        require "apartment/adapters/#{adapter_name}"
+        adapter_class = Adapters.const_get(adapter_name.classify)
+      rescue LoadError, NameError
+        raise AdapterNotFound, "The adapter `#{adapter_name}` is not yet supported"
+      end
+
+      adapter_class.new.tap do |adapter|
+        adapter.setup_connection_specification_name
+        adapter.process_excluded_models
+      end
     end
   end
 end

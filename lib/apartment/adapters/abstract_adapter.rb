@@ -152,6 +152,31 @@ module Apartment
       end
 
       def connection_switch!(config, without_keys: [], reconnect: false)
+        if Apartment.rails_7_2_or_later?
+          connection_switch_with_retry!(config, without_keys: without_keys, reconnect: reconnect)
+        else
+          connection_switch_without_retry!(config, without_keys: without_keys, reconnect: reconnect)
+        end
+      end
+
+      private
+
+      def connection_switch_with_retry!(config, without_keys: [], reconnect: false)
+        retries = 2
+        begin
+          connection_switch_without_retry!(config, without_keys: without_keys, reconnect: reconnect)
+        rescue ActiveRecord::ConnectionTimeoutError => e
+          retries -= 1
+          if retries > 0
+            Rails.logger.warn "Apartment: Connection timeout during switch, retrying: #{e.message}"
+            sleep(0.05) # Brief delay before retry
+            retry
+          end
+          raise
+        end
+      end
+
+      def connection_switch_without_retry!(config, without_keys: [], reconnect: false)
         config = config.reject{ |k, _| without_keys.include?(k) }
         owner_name = ConnectionName.new(connection_specification_name(config), false)
 

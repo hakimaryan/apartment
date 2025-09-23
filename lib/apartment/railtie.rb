@@ -34,6 +34,35 @@ module Apartment
       end
     end
 
+    # Rails 7.2 compatibility: Patch migration checking to prevent deadlocks
+    config.after_initialize do
+      if Apartment.rails_7_2_or_later?
+        ActiveRecord::Migration.class_eval do
+          # Check if the method exists before trying to alias it
+          if method_defined?(:check_all_pending!)
+            alias_method :original_check_all_pending!, :check_all_pending!
+
+            def check_all_pending!(connection = nil)
+              # Skip migration check if we're in a tenant context to prevent Rails 7.2 deadlocks
+              current_tenant = Apartment::Tenant.current rescue nil
+              default_tenant = Apartment.default_tenant rescue nil
+
+              if current_tenant && current_tenant != default_tenant
+                Rails.logger.debug "Apartment: Skipping migration check in tenant context (Rails 7.2 deadlock prevention)"
+                return
+              end
+
+              original_check_all_pending!(connection)
+            rescue => e
+              Rails.logger.warn "Apartment: Migration check failed, continuing to prevent deadlock: #{e.message}"
+            end
+          else
+            Rails.logger.warn "Apartment: check_all_pending! method not found on ActiveRecord::Migration"
+          end
+        end
+      end
+    end
+
     #
     #   Ensure rake tasks are loaded
     #

@@ -94,6 +94,11 @@ module Apartment
 
       Thread.current[:_apartment_connection_specification_name] = nil
     end
+
+    # Rails 7.2+ compatibility check
+    def rails_7_2_or_later?
+      defined?(Rails) && Rails.version >= "7.2"
+    end
   end
 
   # Exceptions

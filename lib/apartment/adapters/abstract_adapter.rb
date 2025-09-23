@@ -137,7 +137,11 @@ module Apartment
         Apartment.connection_class.instance_eval do
           def connection_specification_name
             if !defined?(@connection_specification_name) || @connection_specification_name.nil?
-              apartment_spec_name = Thread.current[:_apartment_connection_specification_name]
+              apartment_spec_name = if defined?(Rails) && Rails.version >= "7.2"
+                                      Fiber[:_apartment_connection_specification_name]
+                                    else
+                                      Thread.current[:_apartment_connection_specification_name]
+                                    end
               return apartment_spec_name ||
                 (self == ActiveRecord::Base ? "ActiveRecord::Base" : superclass.connection_specification_name)
             end
@@ -162,14 +166,23 @@ module Apartment
         end
 
         begin
-          previous = Thread.current[:_apartment_connection_specification_name]
-          Thread.current[:_apartment_connection_specification_name] = owner_name.name
+          if defined?(Rails) && Rails.version >= "7.2"
+            previous = Fiber[:_apartment_connection_specification_name]
+            Fiber[:_apartment_connection_specification_name] = owner_name.name
+          else
+            previous = Thread.current[:_apartment_connection_specification_name]
+            Thread.current[:_apartment_connection_specification_name] = owner_name.name
+          end
 
           if (config[:database] || config[:schema_search_path]) && !reconnect
             simple_switch(config)
           end
         rescue
-          Thread.current[:_apartment_connection_specification_name] = previous
+          if defined?(Rails) && Rails.version >= "7.2"
+            Fiber[:_apartment_connection_specification_name] = previous
+          else
+            Thread.current[:_apartment_connection_specification_name] = previous
+          end
 
           raise
         end

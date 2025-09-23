@@ -1,58 +1,61 @@
 require 'apartment/adapters/abstract_adapter'
-require 'digest'
 
 module Apartment
   module Adapters
+    # Mysql2 Adapter - simplified approach based on ros-apartment
     class Mysql2Adapter < AbstractAdapter
-      def switch_tenant(config)
-        difference = current_difference_from(config)
+      def initialize
+        super
+      end
 
-        if difference[:host]
-          connection_switch!(config)
+      protected
+
+      def rescue_from
+        Mysql2::Error
+      end
+
+      # Simple connection method - just use USE database like ros-apartment
+      def connect_to_new(tenant)
+        return reset if tenant.nil?
+
+        # Handle both string tenant names and hash configs
+        database_name = if tenant.is_a?(Hash)
+          tenant[:database]
         else
-          simple_switch(config)
+          environmentify(tenant)
         end
-      end
 
-      def create_tenant!(config)
-        Apartment.connection.create_database(config[:database], config)
-      end
-
-      def simple_switch(config)
-        Apartment.connection.execute("use `#{config[:database]}`")
+        Apartment.connection.execute "use `#{database_name}`"
+        @current = tenant
       rescue ActiveRecord::StatementInvalid => e
-        if !["Unknown database '#{config[:database]}'", "We could not find your database: #{config[:database]}"].any? { |m| e.message.match?(m) }
-          # borked connection, remove it and reconnect the connection
-          connection_switch!(config, reconnect: true)
-        else
-          raise_connect_error!(config[:database], e)
-        end
+        raise_connect_error!(tenant, e)
       end
 
-      def connection_specification_name(config)
-        if Apartment.pool_per_config
-          "_apartment_#{config.hash}"
+      def reset
+        return unless default_tenant
+
+        # Handle both string tenant names and hash configs
+        database_name = if default_tenant.is_a?(Hash)
+          default_tenant[:database]
         else
-          host_hash = Digest::MD5.hexdigest(config[:host] || config[:url] || "127.0.0.1")
-          "_apartment_#{host_hash}_#{config[:adapter]}"
+          environmentify(default_tenant)
         end
+
+        Apartment.connection.execute "use `#{database_name}`"
+        @current = default_tenant
+      rescue ActiveRecord::StatementInvalid => e
+        # During initial setup (like CI), the default database might not exist yet
+        # Raise the proper exception that the abstract adapter's initialize method expects
+        raise Apartment::TenantNotFound, "Could not reset to default tenant #{database_name}: #{e.message}"
       end
 
-      private
-        def database_exists?(database)
-          result = Apartment.connection.exec_query(<<-SQL).try(:first)
-            SELECT 1 AS `exists`
-            FROM INFORMATION_SCHEMA.SCHEMATA
-            WHERE SCHEMA_NAME = #{Apartment.connection.quote(database)}
-          SQL
-          result.present? && result['exists'] == 1
-        end
+      def default_tenant
+        @default_tenant || Apartment.default_tenant
+      end
 
-        def valid_tenant?(tenant)
-          db = tenant.is_a?(Hash) ? tenant.with_indifferent_access[:database] : tenant
-
-          db && db.bytes.size <= 64 && db.match?(/[^\.\\\/]+/)
-        end
+      def reset_on_connection_exception?
+        true
+      end
     end
   end
 end

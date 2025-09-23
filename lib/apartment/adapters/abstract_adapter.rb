@@ -89,24 +89,30 @@ module Apartment
         switch!(previous_tenant) rescue reset
       end
 
-      def switch!(tenant)
+      def switch!(tenant = nil)
         run_callbacks :switch do
-          unless valid_tenant?(tenant)
-            raise_connect_error!(tenant, ApartmentError.new("Invalid tenant!"))
+          connect_to_new(tenant).tap do
+            Apartment.connection.clear_query_cache
           end
-
-          config = config_for(tenant)
-
-          if Apartment.force_reconnect_on_switch
-            connection_switch!(config)
-          else
-            switch_tenant(config)
-          end
-
-          Apartment.connection.clear_query_cache
-
-          @current = tenant
         end
+      end
+
+      #   Connect to new tenant
+      #
+      #   @param {String} tenant Database name
+      #
+      def connect_to_new(tenant)
+        return reset if tenant.nil?
+
+        query_cache_enabled = ActiveRecord::Base.connection.query_cache_enabled
+
+        Apartment.establish_connection multi_tenantify(tenant)
+        Apartment.connection.verify!
+
+        Apartment.connection.enable_query_cache! if query_cache_enabled
+      rescue *rescuable_exceptions => e
+        Apartment::Tenant.reset if reset_on_connection_exception?
+        raise_connect_error!(tenant, e)
       end
 
       def config_for(tenant)
@@ -195,6 +201,48 @@ module Apartment
 
       def raise_connect_error!(tenant, exception)
         raise TenantNotFound, "Error while connecting to tenant #{tenant}: #{exception.message}"
+      end
+
+      # Return a new config that is multi-tenanted
+      def multi_tenantify(tenant, with_database = true)
+        db_connection_config(tenant).tap do |config|
+          multi_tenantify_with_tenant_db_name(config, tenant) if with_database
+        end
+      end
+
+      def multi_tenantify_with_tenant_db_name(config, tenant)
+        config[:database] = environmentify(tenant)
+      end
+
+      # Exceptions to rescue from on db operations
+      def rescuable_exceptions
+        [ActiveRecord::ActiveRecordError] + Array(rescue_from)
+      end
+
+      # Extra exceptions to rescue from
+      def rescue_from
+        []
+      end
+
+      def db_connection_config(tenant)
+        Apartment.db_config_for(tenant).dup
+      end
+
+      def reset_on_connection_exception?
+        false
+      end
+
+      # Prepend the environment if configured
+      def environmentify(tenant)
+        return tenant if tenant.nil? || tenant.include?(Rails.env)
+
+        if Apartment.prepend_environment
+          "#{Rails.env}_#{tenant}"
+        elsif Apartment.append_environment
+          "#{tenant}_#{Rails.env}"
+        else
+          tenant
+        end
       end
     end
   end

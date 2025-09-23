@@ -10,7 +10,8 @@ module Apartment
 
     ACCESSOR_METHODS = [
       :use_sql, :seed_after_create, :tenant_decorator,
-      :force_reconnect_on_switch, :pool_per_config
+      :force_reconnect_on_switch, :pool_per_config,
+      :prepend_environment, :append_environment
     ]
     WRITER_METHODS   = [
       :tenant_names, :database_schema_file, :excluded_models,

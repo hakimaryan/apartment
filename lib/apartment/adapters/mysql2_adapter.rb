@@ -20,6 +20,25 @@ module Apartment
         raise_connect_error!(tenant, e)
       end
 
+      def simple_switch(config)
+        begin
+          Apartment.connection.execute("use `#{config[:database]}`")
+          # Verify the switch worked by checking current database
+          result = Apartment.connection.execute("SELECT DATABASE() as current_db")
+          actual_database = result.first ? result.first[0] : nil
+
+          unless actual_database == config[:database]
+            raise ActiveRecord::StatementInvalid, "Tenant switch verification failed: expected #{config[:database]}, got #{actual_database}"
+          end
+        rescue ActiveRecord::StatementInvalid => e
+          # Check if database doesn't exist
+          if e.message.include?("Unknown database")
+            raise_connect_error!(config[:database], e)
+          end
+          raise
+        end
+      end
+
       protected
 
       def rescue_from

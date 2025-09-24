@@ -8,6 +8,18 @@ module Apartment
         super
       end
 
+      def create_tenant!(tenant)
+        database_name = if tenant.is_a?(Hash)
+          tenant[:database]
+        else
+          environmentify(tenant)
+        end
+
+        Apartment.connection.create_database(database_name)
+      rescue ActiveRecord::StatementInvalid => e
+        raise_connect_error!(tenant, e)
+      end
+
       protected
 
       def rescue_from

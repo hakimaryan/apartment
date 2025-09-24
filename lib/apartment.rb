@@ -47,6 +47,10 @@ module Apartment
       extract_tenant_config
     end
 
+    def db_config_for(tenant)
+      (tenants_with_config[tenant] || connection_db_config.configuration_hash).with_indifferent_access
+    end
+
     # Whether or not db:migrate should also migrate tenants
     # defaults to true
     def db_migrate_tenants
@@ -94,6 +98,21 @@ module Apartment
       end
 
       Thread.current[:_apartment_connection_specification_name] = nil
+    end
+
+    private
+
+    def extract_tenant_config
+      return {} unless @tenant_names
+      values = @tenant_names.respond_to?(:call) ? @tenant_names.call : @tenant_names
+      unless values.is_a? Hash
+        values = values.each_with_object({}) do |tenant, hash|
+          hash[tenant] = connection_db_config.configuration_hash
+        end
+      end
+      values.with_indifferent_access
+    rescue ActiveRecord::StatementInvalid
+      {}
     end
   end
 

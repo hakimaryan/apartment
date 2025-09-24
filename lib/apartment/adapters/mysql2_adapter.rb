@@ -1,92 +1,58 @@
 require 'apartment/adapters/abstract_adapter'
+require 'digest'
 
 module Apartment
   module Adapters
-    # Mysql2 Adapter - simplified approach based on ros-apartment
     class Mysql2Adapter < AbstractAdapter
-      def initialize
-        super
+      def switch_tenant(config)
+        difference = current_difference_from(config)
+
+        if difference[:host]
+          connection_switch!(config)
+        else
+          simple_switch(config)
+        end
       end
 
-      def create_tenant!(tenant)
-        database_name = if tenant.is_a?(Hash)
-          tenant[:database]
-        else
-          environmentify(tenant)
-        end
-
-        Apartment.connection.create_database(database_name)
-      rescue ActiveRecord::StatementInvalid => e
-        raise_connect_error!(tenant, e)
+      def create_tenant!(config)
+        Apartment.connection.create_database(config[:database], config)
       end
 
       def simple_switch(config)
-        begin
-          Apartment.connection.execute("use `#{config[:database]}`")
-          # Verify the switch worked by checking current database
-          result = Apartment.connection.execute("SELECT DATABASE() as current_db")
-          actual_database = result.first ? result.first[0] : nil
-
-          unless actual_database == config[:database]
-            raise ActiveRecord::StatementInvalid, "Tenant switch verification failed: expected #{config[:database]}, got #{actual_database}"
-          end
-        rescue ActiveRecord::StatementInvalid => e
-          # Check if database doesn't exist
-          if e.message.include?("Unknown database")
-            raise_connect_error!(config[:database], e)
-          end
-          raise
-        end
-      end
-
-      protected
-
-      def rescue_from
-        Mysql2::Error
-      end
-
-      # Simple connection method - just use USE database like ros-apartment
-      def connect_to_new(tenant)
-        return reset if tenant.nil?
-
-        # Handle both string tenant names and hash configs
-        database_name = if tenant.is_a?(Hash)
-          tenant[:database]
-        else
-          environmentify(tenant)
-        end
-
-        Apartment.connection.execute "use `#{database_name}`"
-        @current = tenant
+        Apartment.connection.execute("use `#{config[:database]}`")
       rescue ActiveRecord::StatementInvalid => e
-        raise_connect_error!(tenant, e)
+        if !["Unknown database '#{config[:database]}'", "We could not find your database: #{config[:database]}"].any? { |m| e.message.match?(m) }
+          # borked connection, remove it and reconnect the connection
+          connection_switch!(config, reconnect: true)
+        else
+          raise_connect_error!(config[:database], e)
+        end
       end
 
-      def reset
-        return unless default_tenant
-
-        # Handle both string tenant names and hash configs
-        database_name = if default_tenant.is_a?(Hash)
-          default_tenant[:database]
+      def connection_specification_name(config)
+        if Apartment.pool_per_config
+          "_apartment_#{config.hash}"
         else
-          environmentify(default_tenant)
+          host_hash = Digest::MD5.hexdigest(config[:host] || config[:url] || "127.0.0.1")
+          "_apartment_#{host_hash}_#{config[:adapter]}"
+        end
+      end
+
+      private
+        def database_exists?(database)
+          result = Apartment.connection.exec_query(<<-SQL).try(:first)
+            SELECT 1 AS `exists`
+            FROM INFORMATION_SCHEMA.SCHEMATA
+            WHERE SCHEMA_NAME = #{Apartment.connection.quote(database)}
+          SQL
+          result.present? && result['exists'] == 1
         end
 
-        Apartment.connection.execute "use `#{database_name}`"
-        @current = default_tenant
-      rescue ActiveRecord::StatementInvalid => e
-        # During initial setup (like CI), the default database might not exist yet
-        # Raise the proper exception that the abstract adapter's initialize method expects
-        raise Apartment::TenantNotFound, "Could not reset to default tenant #{database_name}: #{e.message}"
-      end
+        def valid_tenant?(tenant)
+          db = tenant.is_a?(Hash) ? tenant.with_indifferent_access[:database] : tenant
 
-      def default_tenant
-        @default_tenant || Apartment.default_tenant
-      end
-
-      def reset_on_connection_exception?
-        true
-      end
+          db && db.bytes.size <= 64 && db.match?(/[^\.\\\/]+/)
+        end
     end
   end
 end
